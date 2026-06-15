@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ממיר קוד ל-PDF | פשוט. אוטומט.</title>
+    
+    <!-- פאביקון (Favicon) - אייקון של מסמך בצבע הטורקיז של המותג -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23009E8E'%3e%3cpath d='M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z'/%3e%3c/svg%3e">
+    
+    <!-- ייבוא פונט Heebo בדיוק כמו במייל -->
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- טעינת Tailwind CSS וקינפוג צבעי המותג -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        navy: {
+                            800: '#1A3A56',
+                            900: '#0F2B46',
+                        },
+                        teal: {
+                            100: '#E6F7F5',
+                            500: '#009E8E',
+                            600: '#007A6E',
+                        },
+                        slate: {
+                            200: '#e2e8f0',
+                            700: '#334155',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Heebo', 'Arial', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            background-color: #e2e8f0;
+            color: #334155;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* עיצוב פס גלילה לתיבת הטקסט */
+        textarea::-webkit-scrollbar {
+            width: 8px;
+        }
+        textarea::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+        textarea::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 8px;
+        }
+        textarea::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 sm:p-8">
+
+    <!-- התראת Toast (קופצת למעלה) -->
+    <div id="toast" class="fixed top-6 left-1/2 transform -translate-x-1/2 -translate-y-24 opacity-0 transition-all duration-500 ease-out z-50 pointer-events-none">
+        <div class="bg-white text-navy-900 px-6 py-4 rounded-2xl shadow-[0_15px_35px_rgba(15,43,70,0.2)] flex items-center gap-3 border-r-4 border-teal-500">
+            <span id="toastIcon" class="text-teal-500">
+                <!-- אייקון יוכנס דרך JS -->
+            </span>
+            <span id="toastMessage" class="font-medium text-sm sm:text-base">הודעה מערכת</span>
+        </div>
+    </div>
+
+    <!-- הקונטיינר המרכזי -->
+    <div class="bg-white rounded-2xl shadow-[0_15px_35px_rgba(15,43,70,0.1)] max-w-xl w-full overflow-hidden relative">
+        
+        <!-- אזור הלוגו העליון (כמו במייל) -->
+        <div class="bg-gradient-to-br from-navy-900 to-navy-800 p-8 text-center border-b-4 border-teal-500 relative">
+            <div class="bg-white/95 inline-block py-4 px-8 rounded-xl shadow-[0_8px_20px_rgba(0,0,0,0.2)]">
+                <!-- כאן מוגדר לקחת קובץ בשם logo.png. מנגנון ה-onerror יציג טקסט אם התמונה לא תיטען -->
+                <img src="logo.png" alt="פשוט. אוטומט." class="h-16 mx-auto object-contain" 
+                     onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\'text-3xl font-black text-navy-900\'>פשוט. <span class=\'text-teal-500\'>אוטומט.</span></span>'">
+            </div>
+        </div>
+        
+        <div class="p-8 sm:p-10">
+            <div class="text-center mb-8">
+                <h1 class="text-2xl sm:text-3xl font-black text-navy-900 mb-2 leading-tight">
+                    ממיר קוד HTML ל־<span class="text-teal-500">PDF</span>
+                </h1>
+                <p class="text-slate-600 font-medium">הדביקו את הקוד, הזינו מייל וקבלו מסמך מוכן ברגע.</p>
+            </div>
+
+            <form id="convertForm" class="space-y-7">
+                
+                <!-- אזור הדבקת טקסט -->
+                <div>
+                    <label for="htmlText" class="block text-[15px] font-bold text-navy-900 mb-2">1. קוד ה-HTML שלכם:</label>
+                    <div class="relative">
+                        <textarea id="htmlText" rows="8" placeholder="<!-- הדביקו כאן את קוד ה-HTML... -->" required
+                            class="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-5 text-[#334155] font-mono text-sm sm:text-base focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition-all resize-y shadow-inner" dir="ltr"></textarea>
+                        
+                        <!-- עיטור קטן של תגיות קוד בפינה -->
+                        <div class="absolute top-4 right-4 flex items-center justify-center w-7 h-7 bg-white rounded-md text-slate-400 text-xs border border-slate-200 pointer-events-none shadow-sm">
+                            &lt;/&gt;
+                        </div>
+                    </div>
+                </div>
+
+                <!-- שדה אימייל -->
+                <div>
+                    <label for="email" class="block text-[15px] font-bold text-navy-900 mb-2">2. לאן נשלח לכם את המסמך?</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-teal-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                            </svg>
+                        </div>
+                        <input type="email" id="email" required placeholder="name@example.com" 
+                            class="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl pr-12 pl-4 py-3.5 text-navy-900 font-medium focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition-all placeholder-slate-400 text-left" dir="ltr">
+                    </div>
+                </div>
+
+                <!-- תיבת טיפ מותאמת למייל -->
+                <div class="bg-gradient-to-br from-white to-teal-100 border border-teal-500/30 rounded-xl p-5 shadow-[0_4px_15px_rgba(0,158,142,0.05)]">
+                    <div class="flex items-start gap-3">
+                        <div class="mt-0.5">
+                            <input id="newsletter" name="newsletter" type="checkbox" required
+                                class="w-5 h-5 border-slate-300 rounded text-teal-500 focus:ring-teal-500 cursor-pointer accent-teal-500 mt-1">
+                        </div>
+                        <div class="text-sm">
+                            <label for="newsletter" class="font-bold text-navy-900 cursor-pointer text-[15px]">
+                                אני מאשר/ת הצטרפות לרשימת התפוצה <span class="text-red-500">*</span>
+                            </label>
+                            <p class="text-slate-600 font-medium mt-1 leading-relaxed">
+                                קבלת עדכונים, מדריכים ותכנים מקצועיים למייל. 
+                                <span class="text-teal-600 underline decoration-teal-600/30 underline-offset-4">ההסרה אפשרית בכל עת.</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- כפתור שליחה - סגנון מדויק מהמייל -->
+                <button type="submit" id="submitBtn" class="group relative w-full flex justify-center py-4 px-4 border border-transparent text-lg font-extrabold rounded-full text-white bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 focus:outline-none transition-all duration-300 shadow-[0_6px_20px_rgba(0,158,142,0.3)] hover:shadow-[0_8px_25px_rgba(0,158,142,0.4)] hover:-translate-y-0.5 mt-8 overflow-hidden disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none">
+                    <span id="btnText" class="flex items-center gap-2 relative z-10 tracking-wide">
+                        המרת מסמך ל-PDF
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                    </span>
+                </button>
+            </form>
+        </div>
+        
+        <!-- פוטר (כמו במייל) -->
+        <div class="bg-navy-900 p-6 text-center text-[13px] text-slate-400 border-t border-navy-800">
+            <span class="text-white font-extrabold text-[14px]">פשוט. אוטומט.</span> | בונים לך זמן פנוי.<br>
+            <span class="mt-2 block opacity-75">100% מאובטח • תהליך אוטומטי מהיר</span>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('convertForm');
+        const htmlText = document.getElementById('htmlText');
+        const emailInput = document.getElementById('email');
+        const newsletterCheck = document.getElementById('newsletter');
+        
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btnText');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+        const toastIcon = document.getElementById('toastIcon');
+        let toastTimeout;
+
+        // --- התראות Toast ---
+        function showToast(title, message, isSuccess = true) {
+            toastMessage.innerHTML = `<span class="font-extrabold">${title}</span> <br/> <span class="font-medium text-slate-600">${message}</span>`;
+            
+            if (isSuccess) {
+                toastIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
+                toast.querySelector('div').classList.replace('border-red-500', 'border-teal-500');
+            } else {
+                toastIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>`;
+                toast.querySelector('div').classList.replace('border-teal-500', 'border-red-500');
+            }
+            
+            toast.classList.remove('-translate-y-24', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('-translate-y-24', 'opacity-0');
+            }, 5000);
+        }
+
+        // --- שליחת הטופס ל-N8N ---
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            if (htmlText.value.trim() === '') {
+                showToast("שגיאה", "אנא הדביקו קוד HTML בתיבה.", false);
+                return;
+            }
+
+            // עדכון מצב כפתור לאנימציית טעינה
+            const originalBtnHtml = btnText.innerHTML;
+            btnText.innerHTML = `<svg class="animate-spin ml-3 mr-1 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> מעבד ומייצר קובץ...`;
+            submitBtn.disabled = true;
+
+            // הכנת הנתונים למשלוח (הפעם כאובייקט JSON פשוט כי שלחנו רק טקסט)
+            const payload = {
+                htmlContent: htmlText.value,
+                email: emailInput.value,
+                newsletterOptIn: newsletterCheck.checked,
+                timestamp: new Date().toISOString()
+            };
+
+            try {
+                // כתובת ה-Webhook של n8n
+                const webhookUrl = "https://n8n.srv1256019.hstgr.cloud/webhook/1825250f-5408-44da-a6b3-7f248c0920d6";
+                
+                const response = await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json' // שולחים JSON כי אין קבצים מצורפים מצד המשתמש
+                    },
+                    body: JSON.stringify(payload) 
+                });
+
+                if (response.ok) {
+                    // בדיקה האם N8N החזיר לנו קובץ PDF חזרה להורדה מיידית
+                    const contentType = response.headers.get('content-type');
+                    
+                    if (contentType && contentType.includes('application/pdf')) {
+                        const blob = await response.blob();
+                        const downloadUrl = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = downloadUrl;
+                        a.download = `Document_${new Date().getTime()}.pdf`; 
+                        document.body.appendChild(a);
+                        a.click();
+                        
+                        window.URL.revokeObjectURL(downloadUrl);
+                        document.body.removeChild(a);
+
+                        showToast("הקובץ מוכן!", "מסמך ה-PDF ירד למחשב ונשלח אליכם גם במייל.");
+                    } else {
+                        // אם N8N החזיר אישור טקסטואלי
+                        showToast("הבקשה התקבלה בהצלחה", "קובץ ה-PDF נוצר ויישלח אליכם למייל ממש בקרוב.");
+                    }
+                    
+                    // איפוס הטופס להזנה הבאה
+                    form.reset();
+                } else {
+                    throw new Error('שגיאת שרת');
+                }
+            } catch (error) {
+                console.error(error);
+                if (error.message.includes("Failed to fetch")) {
+                    showToast("שגיאת רשת (CORS)", "אנא ודאו שצומת ה-Webhook פתוח להאזנה ו-CORS פעיל.", false);
+                } else {
+                    showToast("אירעה שגיאה", "הייתה בעיה בתקשורת עם השרת, אנא נסו שוב.", false);
+                }
+            } finally {
+                // החזרת הכפתור למצב רגיל
+                btnText.innerHTML = originalBtnHtml;
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
